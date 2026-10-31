@@ -1,0 +1,122 @@
+سبّورة 1.2 — Sabbora 1.2
+تطوير: د. محمد توفيق — Developed by Dr. Mohammed Tawfik — kmkhol01@gmail.com
+===============================================================================
+
+[العربية]
+
+لا يحتاج أي جهاز إلى Python أو إنترنت أو تثبيت. يكفي أن تكون الأجهزة على نفس الشبكة (Windows 10 أو 11 بنظام 64-بت).
+اللغة: زر «🌐 English / العربية» أعلى البرنامج يبدّل اللغة، ويعيد البرنامج تشغيل نفسه.
+
+جهاز المحاضر
+1) شغّل SabboraTeacher.exe.
+   - إن ظهرت رسالة «Windows protected your PC» فاضغط More info ثم Run anyway.
+   - إن ظهرت رسالة جدار الحماية فاضغط Allow access، أو شغّل Firewall_Teacher.cmd مرة واحدة.
+2) يظهر في الأعلى «رمز الصف» و«عنوان المحاضر»؛ اعرضهما للطلاب.
+
+أجهزة الطلاب
+1) انسخ SabboraStudent.exe إلى كل جهاز وشغّله.
+2) يكتب الطالب اسمه، ويختار المحاضرة التي تظهر تلقائيًا، ثم يكتب رمز الصف ويضغط «دخول المحاضرة».
+3) إن لم تظهر المحاضرة يكتب الطالب عنوان المحاضر يدويًا. شغّل Firewall_Student.cmd مرة واحدة لتفعيل الاكتشاف التلقائي.
+4) تشغيل تلقائي في المختبر:  SabboraStudent.exe --auto --code 6914 --name "PC-01"
+
+عرض PowerPoint (جديد في 1.2)
+- اختر من قائمة «مصدر البث»: «PowerPoint — يتبع العرض تلقائيًا»، ثم ▶ بث شاشتي.
+- يرى الطلاب الشرائح فقط: إذا بدأت العرض (F5) يُبث العرض نفسه، وإذا خرجت منه تُبث نافذة PowerPoint، وتنتقل الصورة وحدها.
+- إذا كان لديك بروجكتر وتستخدم «عرض المقدِّم»، تبقى ملاحظاتك على شاشتك ويرى الطلاب الشرائح فقط.
+- «نافذة محددة… (اختر)»: تختار أي نافذة من صور مصغّرة (PDF، متصفح، برنامج برمجة...)،
+  ويرى الطلاب هذه النافذة فقط حتى لو فتحت فوقها نوافذ أخرى.
+
+المظهر (جديد في 1.2)
+- أيقونات احترافية جديدة، وثلاثة أنماط للألوان: عصري (الافتراضي)، كلاسيكي أخضر، داكن.
+- تغيّرها من ⋯ المزيد ← المظهر والألوان (وعند الطالب من أيقونة البرنامج بجانب الساعة).
+
+مشاركة الشاشة
+- ▶ بث شاشتي: بملء الشاشة مقفلًا أو في نافذة.
+- ⏸ تجميد الصورة.
+- مؤشر ليزر.
+- اختيار الشاشة عند وجود أكثر من شاشة، وخمسة مستويات للجودة.
+
+مراقبة الطلاب والتحكم بهم
+- صورة حية لكل طالب، وتحتها اسم البرنامج المفتوح عنده الآن (🪟).
+- نقرتان على صورة الطالب: مشاهدته بدقة عالية، ومنها «🖱 تحكم عن بعد».
+- زر الماوس الأيمن على الطالب: كل الأوامر الخاصة به، ومنها «اعرض شاشته على الصف».
+- 🔒 قفل و🔓 فتح، 💬 رسالة، 🌐 فتح موقع، 🚀 تشغيل برنامج، 📁 إرسال ملف، 📊 تصويت سريع.
+- ⏻ الطاقة: إيقاف التشغيل، إعادة التشغيل، تسجيل الخروج، تشغيل الأجهزة (Wake-on-LAN).
+
+أدوات الشرح (جديد في 1.1)
+- 🖊 قلم على الشاشة: ترسم فوق أي برنامج، ويرى الطلاب الرسم في البث.
+  - الألوان والسماكة والتظليل والتراجع والمسح من الشريط السفلي.
+  - زر «🖱 ماوس» يبقي الرسم ظاهرًا ويتيح لك تقليب الشرائح.
+- ⬜ سبورة: بيضاء أو خضراء بملء الشاشة.
+- ⏱ مؤقت: عدّاد تنازلي يظهر على أجهزة الطلاب.
+- 🎲 اختيار طالب عشوائي: يظهر اسمه لك، ويصله تنبيه.
+- 📥 طلب تسليم واجب: يرسل الطلاب ملفاتهم إليك، وتُحفظ في «المستندات\Sabbora Submissions».
+  ويستطيع الطالب التسليم في أي وقت بزر «📤 تسليم ملف للمحاضر».
+- 📋 إرسال نص للحافظة: يلصقه الطالب بـ Ctrl+V، وهو مفيد للأكواد.
+- ⛔ إغلاق برنامج على أجهزة الطلاب، مثل الألعاب أو المتصفح.
+
+الإدارة
+- ⋯ المزيد: كشف الحضور (CSV)، لقطات لكل الشاشات، تحديد الكل، مجلد التسليمات.
+- اختصارات: Ctrl+B بث، Ctrl+E إيقاف، Ctrl+L قفل، Ctrl+U فتح، Ctrl+M رسالة.
+
+فحص أي جهاز
+SabboraStudent.exe --selftest
+النتيجة في الملف %LOCALAPPDATA%\Sabbora\selftest_student.txt (PASS أو FAIL).
+
+
+[English]
+
+No Python, internet or installation is needed. The PCs only need to be on the same network (Windows 10/11, 64-bit).
+Language: the «🌐 English / العربية» button at the top switches language, and the program restarts itself.
+
+Teacher PC
+1) Run SabboraTeacher.exe.
+   - If you see "Windows protected your PC", click More info, then Run anyway.
+   - If the firewall asks, click Allow access, or run Firewall_Teacher.cmd once.
+2) The top bar shows the class code and the teacher address; show them to the students.
+
+Student PCs
+1) Copy SabboraStudent.exe to each PC and run it.
+2) Type your name, pick the lecture that appears automatically, type the class code, then click Join lecture.
+3) If the lecture does not appear, type the teacher address by hand. Run Firewall_Student.cmd once to enable automatic discovery.
+4) Lab autostart:  SabboraStudent.exe --auto --code 6914 --name "PC-01"
+
+PowerPoint (new in 1.2)
+- In «Share» choose «PowerPoint — follows the slide show», then ▶ Share my screen.
+- Students see only the slides: while the slide show runs (F5) it is shared, otherwise the PowerPoint window; switching is automatic.
+- With a projector and Presenter View, your notes stay on your screen and students see only the slides.
+- «A specific window… (choose)»: pick any window from live thumbnails (PDF, browser, IDE...);
+  students see only that window, even if other windows cover it.
+
+Look (new in 1.2)
+- New professional icons and three colour themes: Modern (default), Classic green, Dark.
+- Change it in ⋯ More → Theme and colours (students: the tray icon next to the clock).
+
+Screen sharing
+- ▶ Share my screen: full screen (locked) or in a window.
+- ⏸ Freeze image.
+- Laser pointer.
+- Choose the screen when there is more than one, and five quality levels.
+
+Monitoring and control
+- A live thumbnail of every student, with the program they are using right now (🪟).
+- Double-click a student to watch them in high quality, then use «🖱 Remote control».
+- Right-click a student for every per-student command, including «Show their screen to the class».
+- 🔒 Lock and 🔓 Unlock, 💬 Message, 🌐 Open website, 🚀 Run program, 📁 Send file, 📊 Quick poll.
+- ⏻ Power: shut down, restart, log off, Wake-on-LAN.
+
+Teaching tools (new in 1.1)
+- 🖊 Pen on screen: draw over any program; students see the ink in the broadcast.
+  - Colours, sizes, marker, undo and clear are on the bottom toolbar.
+  - The «🖱 Mouse» button keeps the ink visible while you flip slides.
+- ⬜ Whiteboard: white or green chalkboard, full screen.
+- ⏱ Timer: a countdown on the student PCs.
+- 🎲 Random student: shows you the picked name and alerts that student.
+- 📥 Collect assignment: students send you their files, saved in «Documents\Sabbora Submissions».
+  Students can also submit at any time with «📤 Submit a file to the teacher».
+- 📋 Send text to clipboard: students paste it with Ctrl+V; useful for code.
+- ⛔ Close a program on the student PCs, such as games or a browser.
+
+Checking a PC
+SabboraStudent.exe --selftest
+The result is in %LOCALAPPDATA%\Sabbora\selftest_student.txt (PASS or FAIL).

@@ -1,0 +1,18 @@
+# build output
+build/
+dist/
+*.spec
+build_*.log
+build_*.out
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# release bundles are attached to GitHub Releases, not committed
+Sabbora_v*/
+Sabbora_v*.zip
+
+# one-off migration scripts and generated lists
+tools/patch_*.py
+tools/i18n_todo.json
+PROGRESS.md
