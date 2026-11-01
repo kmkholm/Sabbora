@@ -1,4 +1,4 @@
-سبّورة 1.2 — Sabbora 1.2
+سبّورة 1.3 — Sabbora 1.3
 تطوير: د. محمد توفيق — Developed by Dr. Mohammed Tawfik — kmkhol01@gmail.com
 ===============================================================================
 
@@ -18,6 +18,17 @@
 2) يكتب الطالب اسمه، ويختار المحاضرة التي تظهر تلقائيًا، ثم يكتب رمز الصف ويضغط «دخول المحاضرة».
 3) إن لم تظهر المحاضرة يكتب الطالب عنوان المحاضر يدويًا. شغّل Firewall_Student.cmd مرة واحدة لتفعيل الاكتشاف التلقائي.
 4) تشغيل تلقائي في المختبر:  SabboraStudent.exe --auto --code 6914 --name "PC-01"
+
+الهواتف والمتصفح (جديد في 1.3)
+- زر «📱 الهواتف والمتصفح» أعلى لوحة المحاضر يُظهر رمز QR.
+- الطلاب: يمسحون الرمز بكاميرا الهاتف، فيفتح المتصفح ويدخلون المحاضرة دون تثبيت أي شيء
+  (أندرويد، آيفون، تابلت، كروم بوك، ماك). يرون شاشتك، ويرفعون اليد، ويسألون، ويصوّتون،
+  ويرون المؤقت، ويسلّمون ملفًا أو صورة من الكاميرا.
+- هاتفك جهاز تحكم: اضغط «إظهار رمز التحكم (سري)» وامسحه بهاتفك.
+  تستطيع منه تقليب الشرائح (التالي والسابق) والشاشة السوداء، وبدء البث وإيقافه وتجميده،
+  وقفل الشاشات وفتحها، وتشغيل المؤقت، واختيار طالب عشوائي، ورؤية الأيدي المرفوعة والأسئلة،
+  و«📷 صوّر واعرض على الصف»: تصوّر ورقة أو سبورة فتظهر الصورة فورًا على كل الأجهزة.
+- يجب أن تكون الهواتف على نفس شبكة الواي فاي. إن لم تفتح الصفحة، شغّل Firewall_Teacher.cmd مرة واحدة.
 
 عرض PowerPoint (جديد في 1.2)
 - اختر من قائمة «مصدر البث»: «PowerPoint — يتبع العرض تلقائيًا»، ثم ▶ بث شاشتي.
@@ -80,6 +91,18 @@ Student PCs
 2) Type your name, pick the lecture that appears automatically, type the class code, then click Join lecture.
 3) If the lecture does not appear, type the teacher address by hand. Run Firewall_Student.cmd once to enable automatic discovery.
 4) Lab autostart:  SabboraStudent.exe --auto --code 6914 --name "PC-01"
+
+Phones and browsers (new in 1.3)
+- The «📱 Phones & browsers» button at the top of the teacher console shows a QR code.
+- Students scan it with the phone camera and join in the browser, with nothing to install
+  (Android, iPhone, tablets, Chromebooks, Macs). They see your screen, raise a hand, ask, vote,
+  see the timer, and submit a file or a camera photo.
+- Your phone as a remote: press «Show remote code (private)» and scan it with your phone.
+  From the phone you can change slides (next, previous, black screen), start/stop/freeze sharing,
+  lock and unlock, run a timer, pick a random student, and see hands and questions.
+  «📷 Take a photo and show it to the class» works like a document camera: shoot a page or the
+  board and it appears on every screen.
+- Phones must be on the same Wi-Fi. If the page does not open, run Firewall_Teacher.cmd once.
 
 PowerPoint (new in 1.2)
 - In «Share» choose «PowerPoint — follows the slide show», then ▶ Share my screen.

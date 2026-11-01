@@ -115,6 +115,7 @@ def room():
     for v in list(tw.viewers.values()):
         v.close()
     tw.server.close_all()
+    tw.web.stop()
     sw.tray.hide()
     sid = r.seat.sid if r.seat else None
     if sid in tw.tiles:

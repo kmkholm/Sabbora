@@ -310,6 +310,108 @@ class WindowPicker(QDialog):
             self.accept()
 
 
+class PhonesDialog(QDialog):
+    """QR codes: students join from any phone/browser; the teacher's phone becomes a remote."""
+
+    def __init__(self, win):
+        super().__init__(win)
+        from . import qr
+        self._qr = qr
+        self.win = win
+        self.setWindowTitle(C.L("الهواتف والمتصفح", "Phones & browsers"))
+        self.setMinimumWidth(820)
+        lay = QVBoxLayout(self)
+        top = QHBoxLayout()
+        top.addWidget(QLabel(C.L("عنوان الشبكة:", "Network address:")))
+        from PyQt5.QtWidgets import QComboBox
+        self.cmb_ip = QComboBox()
+        self.cmb_ip.currentIndexChanged.connect(self._render)
+        top.addWidget(self.cmb_ip, 1)
+        lay.addLayout(top)
+        hint = QLabel(C.L("يجب أن تكون الهواتف متصلة بنفس شبكة الواي فاي التي عليها جهازك. لا يحتاج الطلاب لتثبيت أي شيء.",
+                          "Phones must be on the same Wi-Fi as this PC. Students install nothing."))
+        hint.setWordWrap(True)
+        hint.setObjectName("Muted")
+        lay.addWidget(hint)
+        cards = QHBoxLayout()
+        # students
+        sbox = QFrame()
+        sbox.setObjectName("Tile")
+        sl = QVBoxLayout(sbox)
+        st = QLabel(C.L("📱 الطلاب: امسح للدخول", "📱 Students: scan to join"))
+        st.setObjectName("Title")
+        self.qr_students = QLabel()
+        self.qr_students.setAlignment(Qt.AlignCenter)
+        self.url_students = QLabel()
+        self.url_students.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.url_students.setAlignment(Qt.AlignCenter)
+        sl.addWidget(st)
+        sl.addWidget(self.qr_students)
+        sl.addWidget(self.url_students)
+        sl.addWidget(QLabel(C.L("يمكنك عرض هذا الرمز على البروجكتر ليمسحه الطلاب.",
+                                "You can project this code so students scan it.")))
+        cards.addWidget(sbox, 1)
+        # teacher remote
+        rbox = QFrame()
+        rbox.setObjectName("Tile")
+        rl = QVBoxLayout(rbox)
+        rt = QLabel(C.L("🎮 هاتفك جهاز تحكم", "🎮 Your phone as a remote"))
+        rt.setObjectName("Title")
+        rl.addWidget(rt)
+        rl.addWidget(QLabel(C.L("الشرائح التالية والسابقة، والبث، والقفل، والمؤقت،\nوصوّر بهاتفك واعرض الصورة على الصف.",
+                                "Next/previous slide, sharing, lock, timer,\nand take a photo to show the class.")))
+        self.qr_remote = QLabel()
+        self.qr_remote.setAlignment(Qt.AlignCenter)
+        self.lbl_pin = QLabel()
+        self.lbl_pin.setAlignment(Qt.AlignCenter)
+        self.lbl_pin.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.btn_reveal = QPushButton(C.L("👁 إظهار رمز التحكم (سري)", "👁 Show remote code (private)"))
+        self.btn_reveal.setCheckable(True)
+        self.btn_reveal.toggled.connect(self._render)
+        rl.addWidget(self.qr_remote, 1)
+        rl.addWidget(self.lbl_pin)
+        rl.addWidget(self.btn_reveal)
+        cards.addWidget(rbox, 1)
+        lay.addLayout(cards)
+        close = QPushButton(C.L("إغلاق", "Close"))
+        close.clicked.connect(self.close)
+        lay.addWidget(close, 0, Qt.AlignRight if C.LANG == "en" else Qt.AlignLeft)
+        icons.iconify(self)
+
+    def refresh(self):
+        cur = self.cmb_ip.currentData()
+        self.cmb_ip.blockSignals(True)
+        self.cmb_ip.clear()
+        for ip, name in self.win.lan_addresses():
+            self.cmb_ip.addItem(f"{ip}   ({name})", ip)
+        if cur:
+            i = self.cmb_ip.findData(cur)
+            if i >= 0:
+                self.cmb_ip.setCurrentIndex(i)
+        self.cmb_ip.blockSignals(False)
+        self._render()
+
+    def urls(self):
+        ip = self.cmb_ip.currentData() or "127.0.0.1"
+        port = self.win.web_port
+        return (f"http://{ip}:{port}/?c={self.win.code}",
+                f"http://{ip}:{port}/remote#pin={self.win.server.remote_pin}")
+
+    def _render(self, *_):
+        s_url, r_url = self.urls()
+        self.qr_students.setPixmap(self._qr.qr_pixmap(s_url, scale=7))
+        self.url_students.setText(f"<b>{s_url}</b><br>" + C.L("رمز الصف: ", "Class code: ") + f"<b>{self.win.code}</b>")
+        show = self.btn_reveal.isChecked()
+        C.exclude_from_capture(self, show)          # never broadcast the private remote code
+        if show:
+            self.qr_remote.setPixmap(self._qr.qr_pixmap(r_url, scale=6))
+            self.lbl_pin.setText(C.L("الرمز السري: ", "PIN: ") + f"<b>{self.win.server.remote_pin}</b><br><small>{r_url}</small>")
+        else:
+            self.qr_remote.clear()
+            self.qr_remote.setText(C.L("🔒 مخفي حتى لا يراه الطلاب", "🔒 Hidden so students cannot see it"))
+            self.lbl_pin.setText("")
+
+
 def screen_for_monitor(mon):
     """Match one of common.list_monitors() to a QScreen (same ordering rule)."""
     screens = list(QApplication.screens())
@@ -322,4 +424,4 @@ def screen_for_monitor(mon):
         return primary
 
 
-__all__ = ["AnnotationOverlay", "AnnotationBar", "PickDialog", "WindowPicker", "screen_for_monitor"]
+__all__ = ["AnnotationOverlay", "AnnotationBar", "PhonesDialog", "PickDialog", "WindowPicker", "screen_for_monitor"]

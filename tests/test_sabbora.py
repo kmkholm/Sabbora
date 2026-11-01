@@ -163,6 +163,7 @@ def test_session():
     assert pump(lambda: not tw.all_seats())
     sw.capturer.stop()
     tw.server.close_all()
+    tw.web.stop()
     sw.tray.hide()
     tw.remove_tiles([tw.tiles[seat.sid]])      # keep the real roster clean
     sw.settings.clear()
@@ -193,5 +194,6 @@ def test_english_ui():
         sw.capturer.stop()
         sw.tray.hide()
         tw.server.close_all()
+        tw.web.stop()
     finally:
         C.set_lang("ar")

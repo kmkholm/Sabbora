@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw, ImageGrab
 
 APP_NAME = "Sabbora"
 APP_NAME_AR = "سبّورة"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 AUTHOR_EN = "Dr. Mohammed Tawfik"
 AUTHOR_AR = "د. محمد توفيق"
 AUTHOR_EMAIL = "kmkhol01@gmail.com"

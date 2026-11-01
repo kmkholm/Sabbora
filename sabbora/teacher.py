@@ -15,7 +15,7 @@ import sys
 import time
 
 from PyQt5.QtCore import QEvent, QObject, QPoint, QRect, QSettings, QStandardPaths, Qt, QThread, QTimer, QUrl, pyqtSignal
-from PyQt5.QtGui import QColor, QDesktopServices, QFont, QIcon, QKeySequence, QPainter, QPen
+from PyQt5.QtGui import QColor, QDesktopServices, QFont, QIcon, QKeySequence, QPainter, QPen, QPixmap
 from PyQt5.QtNetwork import QAbstractSocket, QHostAddress, QNetworkInterface, QUdpSocket
 from PyQt5.QtWebSockets import QWebSocketServer
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFrame, QGridLayout,
@@ -25,7 +25,8 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QFileD
 
 from . import common as C
 from . import icons
-from .teacher_tools import AnnotationBar, AnnotationOverlay, PickDialog, WindowPicker, screen_for_monitor
+from .teacher_tools import AnnotationBar, AnnotationOverlay, PhonesDialog, PickDialog, WindowPicker, screen_for_monitor
+from .webserver import WebServer
 
 def quality_presets():
     return [
@@ -166,6 +167,8 @@ class Seat:
         self.files = {}
         self.uploads = {}
         self.win = ""
+        self.role = "student"           # or "remote" (teacher's phone)
+        self.kind = "desktop"           # or "web" (phone / browser student)
 
 
 class FileJob:
@@ -192,6 +195,8 @@ class ClassServer(QObject):
         self.ws.newConnection.connect(self._on_new)
         self.pending = set()
         self.students = {}
+        self.remotes = {}
+        self.remote_pin = ""
         self.b_active = False
         self.b_mode = "full"
         self.b_latest = None
@@ -232,7 +237,11 @@ class ClassServer(QObject):
             except OSError:
                 pass
         st.uploads.clear()
-        if st.sid and self.students.get(st.sid) is st:
+        if st.role == "remote":
+            if self.remotes.get(st.sid) is st:
+                del self.remotes[st.sid]
+                self.notice.emit(st, "remote_left", None)
+        elif st.sid and self.students.get(st.sid) is st:
             del self.students[st.sid]
             self.left.emit(st)
         st.sock.deleteLater()
@@ -245,6 +254,17 @@ class ClassServer(QObject):
         if st.sid is None:
             if t == "hello":
                 self._hello(st, msg)
+            return
+        if st.role == "remote":
+            if t == "ack_b":
+                st.b_waiting = False
+                self._push_broadcast(st)
+            elif t == "cmd":
+                self.notice.emit(st, "cmd", msg)
+            elif t == "up_begin":
+                self._up_begin(st, msg)
+            elif t == "up_end":
+                self._up_end(st, msg)
             return
         if t == "ack_b":
             st.b_waiting = False
@@ -268,6 +288,10 @@ class ClassServer(QObject):
             self.notice.emit(st, t, msg)
 
     def _hello(self, st, msg):
+        if msg.get("role") == "remote":
+            self._hello_remote(st, msg)
+            return
+        st.kind = "web" if msg.get("kind") == "web" else "desktop"
         if str(msg.get("code", "")).strip() != self.code:
             self.send(st, {"t": "reject", "reason": "code"})
             QTimer.singleShot(400, st.sock.close)
@@ -294,6 +318,30 @@ class ClassServer(QObject):
         if self.b_active and sid != self.b_exclude:
             self.send(st, {"t": "bstart", "mode": self.b_mode})
             self._push_broadcast(st)
+
+    def _hello_remote(self, st, msg):
+        if not self.remote_pin or str(msg.get("pin", "")).strip() != self.remote_pin:
+            self.send(st, {"t": "reject", "reason": "pin"})
+            QTimer.singleShot(400, st.sock.close)
+            return
+        st.role = "remote"
+        st.sid = "remote:" + str(msg.get("id") or st.ip)[:40]
+        st.name = "remote"
+        old = self.remotes.get(st.sid)
+        if old is not None and old is not st:
+            old.alive = False
+            old.sock.close()
+        self.pending.discard(st)
+        self.remotes[st.sid] = st
+        self.send(st, {"t": "welcome_remote", "course": self.course})
+        self.notice.emit(st, "remote_join", None)
+        if self.b_active:
+            self._push_broadcast(st)
+
+    def send_state(self, obj):
+        obj = dict(obj, t="state")
+        for r in list(self.remotes.values()):
+            self.send(r, obj)
 
     def _on_binary(self, st, qba):
         data = qba.data() if hasattr(qba, "data") else bytes(qba)
@@ -328,13 +376,19 @@ class ClassServer(QObject):
         if size > C.MAX_UPLOAD_BYTES:
             self.send(st, {"t": "up_reject", "fid": fid})
             return
-        path = C.unique_path(self.submissions_dir(), C.safe_filename(f"{st.name} - {name}"))
+        if st.role == "remote":
+            folder = os.path.join(C.data_dir(), "phone_photos")
+            os.makedirs(folder, exist_ok=True)
+            path = C.unique_path(folder, name)
+        else:
+            path = C.unique_path(self.submissions_dir(), C.safe_filename(f"{st.name} - {name}"))
         try:
             f = open(path, "wb")
         except OSError:
             self.send(st, {"t": "up_reject", "fid": fid})
             return
-        st.uploads[fid] = {"f": f, "path": path, "name": name, "n": 0, "size": size}
+        st.uploads[fid] = {"f": f, "path": path, "name": name, "n": 0, "size": size,
+                           "purpose": str(msg.get("purpose", ""))}
 
     def _up_chunk(self, st, body):
         parsed = C.unpack_file_chunk(body)
@@ -399,7 +453,7 @@ class ClassServer(QObject):
 
     def stop_broadcast(self):
         self.b_active, self.b_latest, self.b_exclude = False, None, None
-        for st in self.students.values():
+        for st in list(self.students.values()) + list(self.remotes.values()):
             self.send(st, {"t": "bstop"})
 
     def publish(self, jpeg):
@@ -407,7 +461,7 @@ class ClassServer(QObject):
             return
         self.b_seq += 1
         self.b_latest = bytes((C.B_BROADCAST,)) + jpeg
-        for st in list(self.students.values()):
+        for st in list(self.students.values()) + list(self.remotes.values()):
             self._push_broadcast(st)
 
     def _push_broadcast(self, st):
@@ -456,7 +510,7 @@ class ClassServer(QObject):
             self._pump_file(st, fid)
 
     def close_all(self):
-        for st in list(self.students.values()) + list(self.pending):
+        for st in list(self.students.values()) + list(self.remotes.values()) + list(self.pending):
             self.send(st, {"t": "bye"})
             st.sock.flush()
             st.sock.close()
@@ -567,6 +621,8 @@ class StudentTile(QFrame):
             marks.append("📺")
         if st and st.focus:
             marks.append("👁")
+        if st and st.kind == "web":
+            marks.append("📱")
         self.badges.setText(" ".join(marks) if self.online else "⚪")
         hand = "true" if (st and st.hand) else "false"
         if self.property("hand") != hand:
@@ -973,6 +1029,13 @@ class TeacherWindow(QMainWindow):
         self.settings.setValue("code", self.code)
         self.server = ClassServer(self.code, self.course, self)
         self.port = self.server.listen(args.port or C.WS_PORT)
+        self.server.remote_pin = f"{random.randint(0, 999999):06d}"
+        self.web = WebServer(self.port)
+        self.web_port = self.web.start()
+        self.injector = C.InputInjector()
+        self.recent_chat = []
+        self.photo_mode = False
+        self.phones_dlg = None
         self.caster = ScreenBroadcaster(self)
         self.caster.frame_ready.connect(self.server.publish)
         self.caster.window_lost.connect(lambda: QTimer.singleShot(0, self._window_lost))
@@ -1063,6 +1126,12 @@ class TeacherWindow(QMainWindow):
         g.addWidget(QLabel(C.L("عنوان المحاضر:", "Teacher address:")), 1, 0)
         g.addWidget(self.lbl_addr, 1, 1, 1, 4)
         h.addWidget(info)
+        b_phone = QPushButton(C.L("📱 الهواتف والمتصفح", "📱 Phones & browsers"))
+        b_phone.setObjectName("HeaderBtn")
+        b_phone.setToolTip(C.L("رمز QR ليدخل الطلاب من هواتفهم، وجهاز تحكم لهاتفك",
+                               "QR code so students join from their phones, and a remote for your phone"))
+        b_phone.clicked.connect(self.show_phones)
+        h.addWidget(b_phone)
         b_lang = QPushButton("🌐 English" if C.LANG == "ar" else "🌐 العربية")
         b_lang.setObjectName("HeaderBtn")
         b_lang.setToolTip(C.L("تغيير لغة البرنامج", "Change the program language"))
@@ -1383,7 +1452,10 @@ class TeacherWindow(QMainWindow):
         tile = self._tile_for(st.sid, info)
         tile.info.update(info)
         tile.seat = st
+        tile.info["kind"] = st.kind
         tile.set_online(True)
+        if st.kind == "web":
+            tile.view.set_pixmap(self._phone_placeholder())
         self.grid.relayout(True)
         self._save_roster()
         r = self.roll.setdefault(st.sid, {"first": datetime.datetime.now(), "seconds": 0.0, "since": None, "last_out": None})
@@ -1434,12 +1506,25 @@ class TeacherWindow(QMainWindow):
                 QApplication.alert(self)
         elif kind == "chat":
             self.log(f"💬 {st.name}: {str(msg.get('text', ''))[:1000]}", st.sid)
+            self.recent_chat = (self.recent_chat + [f"{st.name}: {str(msg.get('text', ''))[:200]}"])[-6:]
             QApplication.alert(self)
         elif kind == "vote" and self.poll and msg.get("pid") == self.poll.pid:
             try:
                 self.poll.add_vote(st, int(msg.get("i")))
             except (TypeError, ValueError):
                 pass
+        elif kind == "cmd":
+            self._remote_cmd(msg)
+            return
+        elif kind == "remote_join":
+            self.log(C.L("📱 اتصل جهاز التحكم (هاتف المحاضر)", "📱 Teacher remote connected (phone)"))
+            return
+        elif kind == "remote_left":
+            self.log(C.L("📱 انقطع جهاز التحكم", "📱 Teacher remote disconnected"))
+            return
+        elif kind == "upload" and st.role == "remote":
+            self.show_photo(msg["path"])
+            return
         elif kind == "upload":
             kb = os.path.getsize(msg["path"]) / 1024 if os.path.exists(msg["path"]) else 0
             self.log(C.L(f"📥 {st.name} سلّم «{msg['name']}» ({kb:.0f} KB)",
@@ -1485,6 +1570,12 @@ class TeacherWindow(QMainWindow):
                 self.log(C.L("⏰ انتهى الوقت", "⏰ Time is up"))
             else:
                 self.statusBar().showMessage(self.statusBar().currentMessage() + f"   |   ⏱ {left // 60:02d}:{left % 60:02d}")
+        if self.server.remotes:
+            left = int(round(self.timer_end - now)) if self.timer_end is not None else 0
+            self.server.send_state({"course": self.course, "online": online,
+                                    "hands": [s.name for s in self.all_seats() if s.hand],
+                                    "chat": self.recent_chat, "sharing": self.server.b_active,
+                                    "frozen": self.caster.paused, "photo": self.photo_mode, "timer_left": max(0, left)})
         self.lbl_count.setText(C.L(f"👥 {online} متصل", f"👥 {online} online"))
         self.bar.count.setText(f"👥 {online}")
 
@@ -1562,8 +1653,8 @@ class TeacherWindow(QMainWindow):
         if self.server.b_active and self.server.b_mode != self.cmb_mode.currentData():
             self.server.start_broadcast(self.cmb_mode.currentData(), self.server.b_exclude)
 
-    def start_cast(self):
-        if not self.all_seats() and QMessageBox.question(
+    def start_cast(self, quiet=False):
+        if not quiet and not self.all_seats() and QMessageBox.question(
                 self, C.L("بث الشاشة", "Share screen"), C.L("لا يوجد طلاب متصلون حاليًا. هل تريد بدء البث على أي حال؟", "No students are connected yet. Start sharing anyway?")) != QMessageBox.Yes:
             return
         if self.demo_sid:
@@ -1598,6 +1689,7 @@ class TeacherWindow(QMainWindow):
             self.caster.stop()
         if self.demo_sid:
             self._end_demo()
+        self.photo_mode = False
         if self.server.b_active:
             self.server.stop_broadcast()
             self.log(C.L("⏹ توقف البث", "⏹ Sharing stopped"))
@@ -1605,7 +1697,7 @@ class TeacherWindow(QMainWindow):
 
     def start_demo(self, sid):
         tile = self.tiles.get(sid)
-        if not tile or not tile.seat:
+        if not tile or not tile.seat or tile.seat.kind == "web":
             return
         if self.caster.isRunning():
             self.caster.stop()
@@ -1634,6 +1726,10 @@ class TeacherWindow(QMainWindow):
         tile = self.tiles.get(sid)
         if not tile or not tile.seat:
             self.statusBar().showMessage(C.L("هذا الجهاز غير متصل الآن.", "This PC is offline right now."), 3000)
+            return
+        if tile.seat.kind == "web":
+            self.statusBar().showMessage(C.L("هذا الطالب يستخدم هاتفًا أو متصفحًا: لا يمكن رؤية شاشته أو التحكم بها.",
+                                             "This student uses a phone/browser: its screen cannot be viewed or controlled."), 5000)
             return
         v = self.viewers.get(sid)
         if v:
@@ -1919,6 +2015,9 @@ class TeacherWindow(QMainWindow):
             return
         self.settings.setValue("timer_min", minutes)
         self.settings.setValue("timer_title", title)
+        self._start_timer(seats, minutes, title)
+
+    def _start_timer(self, seats, minutes, title):
         self.server.send_many(seats, {"t": "timer", "seconds": minutes * 60, "title": title.strip()[:80]})
         self.timer_end = time.monotonic() + minutes * 60
         self.btn_timer.setText(C.L("⏹ إيقاف المؤقت", "⏹ Stop timer"))
@@ -1974,6 +2073,97 @@ class TeacherWindow(QMainWindow):
             self.log(C.L(f"📥 طُلب تسليم «{title.strip()}» من {len(seats)} طالب — تُحفظ في {self.server.submissions_dir()}",
                          f"📥 Requested «{title.strip()}» from {len(seats)} student(s) — saved in {self.server.submissions_dir()}"))
 
+    # ------------------------------------------------------ phones & remote
+    def lan_addresses(self):
+        """LAN IPv4 addresses, real network cards first (virtual adapters last)."""
+        virtual = ("virtualbox", "vmware", "vethernet", "hyper-v", "loopback", "docker", "wsl", "bluetooth")
+        out = []
+        for ip, _bc, name in self._ipv4_entries():
+            if ip.startswith("169.254."):
+                continue
+            out.append((any(v in name.lower() for v in virtual), ip, name))
+        out.sort(key=lambda x: x[0])
+        return [(ip, name) for _v, ip, name in out] or [("127.0.0.1", "localhost")]
+
+    def show_phones(self):
+        if self.phones_dlg is None:
+            self.phones_dlg = PhonesDialog(self)
+        self.phones_dlg.refresh()
+        self.phones_dlg.show()
+        self.phones_dlg.raise_()
+
+    def _phone_placeholder(self):
+        pm = QPixmap(320, 180)
+        pm.fill(QColor(C.T("thumb_bg")))
+        p = QPainter(pm)
+        icon = icons.pixmap("cellphone", 72, "#9FB3AA")
+        if icon is not None:
+            p.drawPixmap(124, 34, icon)
+        p.setPen(QColor("#9FB3AA"))
+        p.drawText(QRect(0, 120, 320, 40), Qt.AlignCenter, C.L("هاتف / متصفح", "Phone / browser"))
+        p.end()
+        return pm
+
+    def _key(self, vk):
+        self.injector.key(vk, True)
+        self.injector.key(vk, False)
+
+    def _remote_cmd(self, msg):
+        c = msg.get("c")
+        if c == "next":
+            self._key(0x27)              # Right arrow: next slide
+        elif c == "prev":
+            self._key(0x25)              # Left arrow: previous slide
+        elif c == "black":
+            self._key(0x42)              # B: black screen in PowerPoint
+        elif c == "share":
+            self.start_cast(quiet=True)
+        elif c == "stop":
+            self.stop_cast()
+        elif c == "freeze":
+            self.set_paused(not self.caster.paused)
+        elif c == "lock":
+            self.do_lock(self.all_seats())
+        elif c == "unlock":
+            self.do_unlock(self.all_seats())
+        elif c == "pick":
+            self.do_pick()
+        elif c == "hands_down":
+            self.lower_hands(self.all_seats())
+        elif c == "timer":
+            try:
+                minutes = max(1, min(int(msg.get("min", 5)), 240))
+            except (TypeError, ValueError):
+                return
+            seats = self.all_seats()
+            if seats:
+                self._start_timer(seats, minutes, C.L("نشاط صفي", "Class activity"))
+        elif c == "timer_stop" and self.timer_end is not None:
+            self.server.send_many(self.all_seats(), {"t": "timer_stop"})
+            self.timer_end = None
+            self.btn_timer.setText(C.L("⏱ مؤقت", "⏱ Timer"))
+            icons.iconify_button(self.btn_timer)
+
+    def show_photo(self, path):
+        """Show a photo (e.g. taken with the teacher's phone) on every student screen."""
+        from PIL import Image, ImageOps
+        try:
+            img = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+        except Exception:
+            self.log(C.L("📷 تعذر فتح الصورة", "📷 Could not open the photo"))
+            return
+        jpeg = C.encode_jpeg(img, 1920, 85)
+        if self.caster.isRunning():
+            self.caster.stop()
+        if self.demo_sid:
+            self._end_demo()
+        self.server.start_broadcast(self.cmb_mode.currentData())
+        self.server.publish(jpeg)
+        self.photo_mode = True
+        self.bar.btn_pause.setEnabled(False)
+        self.bar.show_bar(C.L("● تُعرض صورة من الهاتف", "● Showing a photo from the phone"))
+        self.log(C.L("📷 عُرضت صورة من الهاتف على الصف", "📷 Photo from the phone shown to the class"))
+
     def open_submissions(self):
         QDesktopServices.openUrl(QUrl.fromLocalFile(self.server.submissions_dir(dated=False)))
 
@@ -2014,6 +2204,9 @@ class TeacherWindow(QMainWindow):
             self.caster.stop()
         self.server.send_many(self.all_seats(), {"t": "unlock"})
         self.server.close_all()
+        self.web.stop()
+        if self.phones_dlg:
+            self.phones_dlg.close()
         self.bar.close()
         if self.overlay:
             self.overlay.close()
